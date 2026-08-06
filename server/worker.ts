@@ -17,9 +17,7 @@ interface JobData {
 // 1. UPSTASH REDIS CONNECTION
 // ============================================
 const redisConnection = new Redis({
-  host:
-    process.env.UPSTASH_REDIS_REST_URL?.replace("https://", "").split(":")[0] ||
-    "localhost",
+  host: process.env.UPSTASH_REDIS_REST_URL?.replace("https://", "").split(":")[0] || "localhost",
   port: 6379,
   password: process.env.UPSTASH_REDIS_REST_TOKEN,
   tls: {},
@@ -99,7 +97,7 @@ const worker = new Worker(
   {
     concurrency: 100,
     connection: redisConnection,
-  },
+  }
 );
 
 // ============================================

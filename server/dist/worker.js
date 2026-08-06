@@ -1,4 +1,5 @@
 import { Worker } from "bullmq";
+import { Redis } from "ioredis";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { QdrantVectorStore } from "@langchain/qdrant";
@@ -6,48 +7,53 @@ import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import "dotenv/config";
 // ============================================
-// 1. GEMINI CONFIG (FIXED MODEL NAME)
+// 1. UPSTASH REDIS CONNECTION
+// ============================================
+const redisConnection = new Redis({
+    host: process.env.UPSTASH_REDIS_REST_URL?.replace("https://", "").split(":")[0] ||
+        "localhost",
+    port: 6379,
+    password: process.env.UPSTASH_REDIS_REST_TOKEN,
+    tls: {},
+    retryStrategy: (times) => Math.min(times * 50, 2000),
+});
+// ============================================
+// 2. GEMINI EMBEDDINGS
 // ============================================
 const embeddings = new GoogleGenerativeAIEmbeddings({
-    model: "text-embedding-004", // ✅ Latest stable text embedding model
+    model: "gemini-embedding-001",
     apiKey: process.env.GEMINI_API_KEY,
 });
 // ============================================
-// 2. QDRANT CONFIG
+// 3. QDRANT CLOUD
 // ============================================
 const qdrantClient = new QdrantClient({
-    url: process.env.QDRANT_URL, // ✅ Cloud URL from .env
-    apiKey: process.env.QDRANT_API_KEY, // ✅ API Key from .env
+    url: process.env.QDRANT_URL,
+    apiKey: process.env.QDRANT_API_KEY,
 });
 try {
-    const collectionsInfo = await qdrantClient.getCollections();
-    const collections = collectionsInfo.collections.map((c) => c.name);
-    if (!collections.includes("langchain-js-testing")) {
-        await qdrantClient.createCollection("langchain-js-testing", {
-            vectors: { size: 768, distance: "Cosine" },
-        });
-        console.log("✅ Qdrant collection 'langchain-js-testing' created");
-    }
-    else {
-        console.log("✅ Qdrant collection 'langchain-js-testing' already exists");
-    }
+    await qdrantClient.getCollections();
+    console.log("✅ Qdrant is running");
 }
-catch (err) {
-    console.error("❌ Error checking/creating Qdrant collection:", err);
+catch {
+    await qdrantClient.createCollection("documents", {
+        vectors: { size: 768, distance: "Cosine" },
+    });
+    console.log("✅ Qdrant collection 'documents' created");
 }
 const vectorStore = new QdrantVectorStore(embeddings, {
     client: qdrantClient,
     collectionName: "langchain-js-testing",
 });
 // ============================================
-// 3. TEXT SPLITTER
+// 4. TEXT SPLITTER
 // ============================================
 const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 512,
     chunkOverlap: 100,
 });
 // ============================================
-// 4. BULLMQ WORKER
+// 5. BULLMQ WORKER
 // ============================================
 const worker = new Worker("file-upload-queue", async (job) => {
     const data = JSON.parse(job.data);
@@ -73,10 +79,10 @@ const worker = new Worker("file-upload-queue", async (job) => {
     }
 }, {
     concurrency: 100,
-    connection: { host: "localhost", port: 6379 },
+    connection: redisConnection,
 });
 // ============================================
-// 5. EVENT HANDLERS
+// 6. EVENT HANDLERS
 // ============================================
 worker.on("completed", (job) => {
     console.log(`🎉 Job ${job.id} completed successfully`);
