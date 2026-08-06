@@ -3,6 +3,7 @@ import cors from "cors";
 import "dotenv/config";
 import multer from "multer";
 import { Queue } from "bullmq";
+import { Redis } from "ioredis";
 import {
   ChatGoogleGenerativeAI,
   GoogleGenerativeAIEmbeddings,
@@ -14,10 +15,24 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const queue = new Queue("file-upload-queue", {
-  connection: { host: "localhost", port: 6379 },
+// ============================================
+// 1. UPSTASH REDIS CONNECTION (for BullMQ)
+// ============================================
+const redisConnection = new Redis({
+  host: process.env.UPSTASH_REDIS_REST_URL?.replace("https://", "").split(":")[0] || "localhost",
+  port: 6379,
+  password: process.env.UPSTASH_REDIS_REST_TOKEN,
+  tls: {}, // required for Upstash
+  retryStrategy: (times) => Math.min(times * 50, 2000),
 });
 
+const queue = new Queue("file-upload-queue", {
+  connection: redisConnection,
+});
+
+// ============================================
+// 2. MULTER SETUP (File Upload)
+// ============================================
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "uploads/");
@@ -33,15 +48,15 @@ const upload = multer({ storage: storage });
 const PORT = process.env.PORT || 8000;
 
 // ============================================
-// 1. GEMINI EMBEDDINGS
+// 3. GEMINI EMBEDDINGS
 // ============================================
 const embeddings = new GoogleGenerativeAIEmbeddings({
-  model: "gemini-embedding-2",
+  model: "gemini-embedding-001",
   apiKey: process.env.GEMINI_API_KEY,
 });
 
 // ============================================
-// 2. QDRANT CONFIG
+// 4. QDRANT CLOUD CONFIG
 // ============================================
 const qdrantClient = new QdrantClient({
   url: process.env.QDRANT_URL,
@@ -65,20 +80,20 @@ try {
 
 const vectorStore = new QdrantVectorStore(embeddings, {
   client: qdrantClient,
-  collectionName: "langchain-js-testing", // ✅ Match your Qdrant collection name
+  collectionName: "langchain-js-testing",
 });
 
 // ============================================
-// 3. GEMINI CHAT MODEL
+// 5. GEMINI CHAT MODEL
 // ============================================
 const chatModel = new ChatGoogleGenerativeAI({
-  model: "gemini-3.5-flash",
+  model: "gemini-2.5-flash",
   apiKey: process.env.GEMINI_API_KEY,
   temperature: 0.2,
 });
 
 // ============================================
-// 4. ROUTES
+// 6. ROUTES
 // ============================================
 
 app.get("/", (req: Request, res: Response) => {
@@ -96,15 +111,17 @@ app.post("/upload/pdf", upload.single("pdf"), async (req: Request, res: Response
       filename: req.file.originalname,
       destination: req.file.destination,
       path: req.file.path,
-    }),
+    })
   );
 
   return res.json({ message: "File uploaded successfully." });
 });
 
-// ✅ CHAT ENDPOINT – now matches tutorial
 app.get("/chat", async (req: Request, res: Response): Promise<any> => {
-  const userQuery = typeof req.query.message === "string" ? req.query.message : 'what is the content of the pdf file?';
+  const userQuery =
+    typeof req.query.message === "string"
+      ? req.query.message
+      : "what is the content of the pdf file?";
 
   if (!userQuery) {
     return res.status(400).json({ error: "Missing 'message' query parameter" });
@@ -140,6 +157,3 @@ app.get("/chat", async (req: Request, res: Response): Promise<any> => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
-
-// user endpoint
