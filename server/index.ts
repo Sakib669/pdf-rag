@@ -22,13 +22,11 @@ app.use(express.json());
 app.use(cors());
 
 // ============================================
-// 1. UPSTASH REDIS CONNECTION (for BullMQ)
+// 1. LOCAL REDIS CONNECTION (Valkey-compatible)
 // ============================================
 const redisConnection = new Redis({
-  host: process.env.UPSTASH_REDIS_REST_URL?.replace("https://", "").split(":")[0] || "localhost",
-  port: 6379,
-  password: process.env.UPSTASH_REDIS_REST_TOKEN,
-  tls: {}, // required for Upstash
+  host: process.env.REDIS_HOST || "localhost",
+  port: Number(process.env.REDIS_PORT || 6379),
   retryStrategy: (times) => Math.min(times * 50, 2000),
 });
 
