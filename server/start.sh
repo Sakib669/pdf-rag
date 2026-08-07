@@ -1,8 +1,5 @@
 #!/bin/sh
-# Start server and worker together
-
+echo "🚀 Starting server and worker..."
 npm start &
 npm run worker &
-
-# Wait for any to exit
 wait
