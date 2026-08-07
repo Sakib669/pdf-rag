@@ -16,10 +16,16 @@ interface JobData {
 // ============================================
 // 1. LOCAL REDIS CONNECTION (Valkey-compatible)
 // ============================================
+const redisHost = process.env.REDIS_HOST || "localhost";
+const redisPort = Number(process.env.REDIS_PORT || 6379);
+
+console.log(`🔌 Connecting to Redis at ${redisHost}:${redisPort}`);
+
 const redisConnection = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: Number(process.env.REDIS_PORT || 6379),
+  host: redisHost,
+  port: redisPort,
   retryStrategy: (times) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: 10,
 });
 
 // ============================================
@@ -95,7 +101,7 @@ const worker = new Worker(
   {
     concurrency: 100,
     connection: redisConnection,
-  }
+  },
 );
 
 // ============================================

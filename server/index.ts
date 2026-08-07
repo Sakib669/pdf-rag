@@ -28,6 +28,7 @@ const redisConnection = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: Number(process.env.REDIS_PORT || 6379),
   retryStrategy: (times) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: 10, // ✅ Add this
 });
 
 const queue = new Queue("file-upload-queue", {

@@ -1,26 +1,24 @@
-FROM node:20-slim
+FROM node:20-alpine
 
-# Install Redis server for local queue storage
-RUN apt-get update \
-  && apt-get install -y redis-server \
-  && rm -rf /var/lib/apt/lists/*
+# Install Valkey (Redis-compatible)
+RUN apk add --no-cache valkey
 
 WORKDIR /app
 
-# Copy package metadata and install dependencies
-COPY package.json package-lock.json ./
-RUN npm install
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
 
-# Copy application source files and build TypeScript
-COPY tsconfig.json ./
-COPY index.ts worker.ts ./
+# Copy source code and build
+COPY . .
 RUN npm run build
 
-# Copy the startup helper script and uploads directory
-COPY start.sh ./
-RUN chmod +x ./start.sh
-COPY uploads ./uploads
+# Copy and make start.sh executable
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
-EXPOSE 8000
+# Expose ports
+EXPOSE 6379 8000
 
-CMD ["./start.sh"]
+# Start everything
+CMD ["/start.sh"]

@@ -1,36 +1,23 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/sh
 
-# Start Valkey/Redis in the background.
-redis-server --save "" --appendonly no &
-REDIS_PID=$!
+# Start Valkey in the background
+echo "⏳ Starting Valkey..."
+valkey-server --appendonly yes --bind 0.0.0.0 &
 
-# Wait for Redis to be ready.
-for i in {1..20}; do
-  if redis-cli ping > /dev/null 2>&1; then
-    echo "✅ Redis is ready"
-    break
-  fi
-  echo "Waiting for Redis to start... ($i/20)"
+# Wait for Valkey to be ready
+echo "⏳ Waiting for Valkey to be ready..."
+while ! valkey-cli ping > /dev/null 2>&1; do
   sleep 1
 done
+echo "✅ Valkey is ready"
 
-if ! redis-cli ping > /dev/null 2>&1; then
-  echo "❌ Redis did not start in time"
-  kill $REDIS_PID
-  exit 1
-fi
-
-# Start the Express API and worker in the background.
+# Start Express server (in the background)
+echo "⏳ Starting Express server..."
 npm start &
-API_PID=$!
+
+# Start the worker (in the background)
+echo "⏳ Starting BullMQ worker..."
 npm run worker &
-WORKER_PID=$!
 
-# Wait for any process to exit and propagate its status.
-wait -n $REDIS_PID $API_PID $WORKER_PID
-EXIT_CODE=$?
-
-echo "One of the processes exited with code $EXIT_CODE"
-kill $REDIS_PID $API_PID $WORKER_PID 2>/dev/null || true
-exit $EXIT_CODE
+# Wait for all background processes
+wait
