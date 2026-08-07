@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PDF RAG Frontend
 
-## Getting Started
+This frontend is built with Next.js (App Router), TypeScript, Clerk authentication, and Tailwind CSS. It provides a secure UI for uploading PDFs and chatting with a retrieval-augmented generation system backed by a vector database and Gemini AI.
 
-First, run the development server:
+## Features
+
+- Clerk-based authentication for protected access
+- PDF upload UI with drag-and-click file selection
+- Real-time chat interface for asking questions about uploaded PDFs
+- API integration with Express backend for file uploads and semantic search
+- Type-safe frontend services and reusable UI components
+
+## Local Development
+
+Install dependencies:
+
+```bash
+cd client
+npm install
+```
+
+Run the development frontend:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000` in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The frontend expects the following environment variable:
 
-## Learn More
+- `NEXT_PUBLIC_API_BASE_URL` — backend API base URL (example: `http://localhost:8000`)
 
-To learn more about Next.js, take a look at the following resources:
+Create a `.env.local` file in `client/` with:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Production Deployment
 
-## Deploy on Vercel
+This app is intended for deployment on Vercel or any Next.js-compatible hosting provider. Configure `NEXT_PUBLIC_API_BASE_URL` to point at the deployed backend API.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Relevant Files
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `app/page.tsx` — main page rendering upload and chat views
+- `app/layout.tsx` — global layout and Clerk provider
+- `components/file-upload.tsx` — upload UI and file submission
+- `components/chat.tsx` — chat UI and message handling
+- `services/api.ts` — client-side API wrapper
+- `types/index.ts` — shared message/document typings
+
+## Notes
+
+The frontend is designed to work with a backend that provides `/upload/pdf` and `/chat` endpoints. Ensure the server is running before using the UI.
