@@ -14,19 +14,28 @@ interface JobData {
 }
 
 // ============================================
-// 1. LOCAL REDIS CONNECTION (Valkey-compatible)
+// 1. UPSTASH REDIS CONNECTION (BullMQ compatible)
 // ============================================
-const redisHost = process.env.REDIS_HOST || "localhost";
-const redisPort = Number(process.env.REDIS_PORT || 6379);
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-console.log(`🔌 Connecting to Redis at ${redisHost}:${redisPort}`);
+if (!redisUrl || !redisToken) {
+  console.warn(
+    "⚠️ Upstash Redis credentials not fully set. Falling back to localhost.",
+  );
+}
 
-const redisConnection = new Redis({
-  host: redisHost,
-  port: redisPort,
-  retryStrategy: (times) => Math.min(times * 50, 2000),
-  maxRetriesPerRequest: 10,
-});
+const redisConnection = new Redis(
+  redisUrl
+    ? redisUrl.replace(/^https:\/\//, "rediss://")
+    : "redis://localhost:6379",
+  {
+    password: redisToken,
+    tls: redisUrl ? {} : undefined,
+    retryStrategy: (times) => Math.min(times * 100, 3000),
+    maxRetriesPerRequest: null, // ✅ Required for BullMQ
+  },
+);
 
 // ============================================
 // 2. GEMINI EMBEDDINGS
@@ -68,7 +77,7 @@ const splitter = new RecursiveCharacterTextSplitter({
 });
 
 // ============================================
-// 5. BULLMQ WORKER
+// 5. BULLMQ WORKER (with graceful ENOENT handling)
 // ============================================
 const worker = new Worker(
   "file-upload-queue",
@@ -93,14 +102,22 @@ const worker = new Worker(
         filename: data.filename,
         chunks: chunks.length,
       };
-    } catch (error) {
+    } catch (error: any) {
+      // Gracefully handle missing files
+      if (error.code === "ENOENT") {
+        console.warn(`⚠️ File not found: ${data.path}. Skipping job.`);
+        return; // Job completes without retry
+      }
       console.error(`❌ Error processing ${data.filename}:`, error);
-      throw error;
+      throw error; // Retry other errors
     }
   },
   {
     concurrency: 100,
     connection: redisConnection,
+    // Optional: remove completed/failed jobs after some time
+    removeOnComplete: { age: 3600 }, // keep for 1 hour
+    removeOnFail: { age: 3600 },
   },
 );
 

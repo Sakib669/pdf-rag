@@ -22,14 +22,24 @@ app.use(express.json());
 app.use(cors());
 
 // ============================================
-// 1. LOCAL REDIS CONNECTION (Valkey-compatible)
+// 1. UPSTASH REDIS CONNECTION (via ioredis)
 // ============================================
-const redisConnection = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: Number(process.env.REDIS_PORT || 6379),
-  retryStrategy: (times) => Math.min(times * 50, 2000),
-  maxRetriesPerRequest: 10, // ✅ Add this
-});
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+if (!redisUrl || !redisToken) {
+  console.warn("⚠️ Upstash Redis credentials not fully set. Falling back to localhost.");
+}
+
+const redisConnection = new Redis(
+  redisUrl ? redisUrl.replace(/^https:\/\//, "rediss://") : "redis://localhost:6379",
+  {
+    password: redisToken,
+    tls: redisUrl ? {} : undefined,
+    retryStrategy: (times) => Math.min(times * 100, 3000),
+    maxRetriesPerRequest: null, // ✅ Required for BullMQ
+  }
+);
 
 const queue = new Queue("file-upload-queue", {
   connection: redisConnection,

@@ -4,12 +4,10 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "worker": "node dist/worker.js",
-    "dev": "tsx watch index.ts",
-    "dev:worker": "tsx watch worker.ts"
-  },
+  "build": "tsc",
+  "start": "node dist/index.js",
+  "worker": "node dist/worker.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
